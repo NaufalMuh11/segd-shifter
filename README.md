@@ -1,62 +1,41 @@
-# SEGD to SEG-Y Converter (Fairfield / SeisUnix)
+# SEGD to SEG-Y Converter
 
-Repositori ini menyediakan seperangkat alat untuk mengonversi data seismik mentah berformat **SEG-D (Fairfield Nodal/ZNode)** menjadi format **SEG-Y Standar (Big-Endian)**. 
+A tool to convert raw **SEG-D** seismic data into standard **SEG-Y (Big-Endian)** format for seismic processing software. The converter utilizes Python multiprocessing to process large batches of files in parallel.
 
-Ada beberapa metode konversi yang tersedia di dalam proyek ini, baik yang menggunakan skrip Python murni (100% akurat) maupun kombinasi Docker (SeisUnix) dengan perbaikan Python.
+## Usage
 
-## 📂 Struktur Folder
-- `data/` : Tempat untuk meletakkan file input `.SEGD` yang ingin diproses.
-- `output/` : Folder output sementara (misalnya untuk file `.su`).
-- `output_final/` : Folder output akhir untuk file `.sgy`.
-- `segdread.c` & `Dockerfile.segdread` : Source code dan Dockerfile untuk membuat image khusus `segdread` dari SeisUnix.
-- `su2segy.py`, `segd2segy.py`, `convert_fairfield.py` : Kumpulan skrip Python untuk memproses data byte.
+### Method 1: Standalone Executable (GUI)
+This method requires no installation or command-line knowledge.
 
----
+1. Navigate to the `dist/` folder.
+2. Double-click `batch_convert.exe`.
+3. A dialog window will appear. Follow the prompts to:
+   - Select the input folder containing your `.SEGD` files.
+   - Select the output folder where the converted `.sgy` files will be saved.
+4. The conversion will start automatically.
 
-## ⚙️ Persyaratan Sistem
-- **Python 3.x** (Untuk menjalankan skrip Python secara lokal).
-- **Docker Desktop** (Jika menggunakan metode SeisUnix atau Docker-Compose).
-- **PowerShell** (Untuk menjalankan skrip otomasi `.ps1` di Windows).
+### Method 2: Command Line (CLI)
+For advanced users who prefer the terminal or want to integrate the tool into other scripts. Requires Python 3.
 
----
-
-## 🚀 Cara Menjalankan Program
-
-Pindahkan semua file seismik `.SEGD` yang ingin Anda konversi ke dalam folder `data/` sebelum menjalankan metode di bawah ini.
-
-### Metode 1: Menggunakan Skrip Pure Python (Direkomendasikan)
-Metode ini sangat akurat, berjalan secara lokal (tanpa Docker), dan langsung mengonversi SEG-D ke SEG-Y tanpa file perantara.
-1. Buka PowerShell.
-2. Jalankan skrip:
-   ```powershell
-   .\process_all_pure.ps1
-   ```
-3. Hasil konversi (`.sgy`) akan tersedia di folder `output_final/`.
-
-### Metode 2: Menggunakan SeisUnix (Docker) & Python
-Metode ini menggunakan program `segdread` dari SeisUnix yang di-containerize dengan Docker (memproses file ke format SU Little-Endian), lalu diperbaiki format dan endianness-nya menggunakan skrip Python.
-1. Pastikan Docker Desktop sedang berjalan.
-2. Build image Docker untuk `segdread` (Hanya perlu dilakukan sekali pertama kali):
+1. Open a terminal in the project directory.
+2. Run the following command:
    ```bash
-   docker build -f Dockerfile.segdread -t segdread:latest .
+   python batch_convert.py -i <input_folder> -o <output_folder>
    ```
-3. Jalankan skrip PowerShell:
-   ```powershell
-   .\process_all.ps1
-   ```
-4. Hasil antara `.su` akan ada di `output/` dan file akhir `.sgy` akan ada di `output_final/`.
-
-### Metode 3: Menggunakan Docker Compose (Fully Containerized)
-Metode ini menggunakan skrip Python yang berjalan penuh di dalam Docker, cocok jika Anda tidak memiliki Python di komputer lokal.
-1. Pastikan Docker Desktop sedang berjalan.
-2. Jalankan perintah berikut di terminal/PowerShell:
+   **Example:**
    ```bash
-   docker-compose up --build
+   python batch_convert.py -i data/ -o output_final/
    ```
-3. Proses konversi akan berjalan dan hasil akhirnya (file `.sgy`) akan muncul di folder `output/`.
+3. (Optional) Specify the number of CPU cores to use with the `-w` flag:
+   ```bash
+   python batch_convert.py -i data/ -o output_final/ -w 4
+   ```
 
----
+## Features
+- **Resilient Processing**: If a file is corrupted, the program will skip it, log the issue to `error_log.txt` in the output folder, and continue processing the rest of the files.
+- **Recursive Search**: The tool automatically finds all `.SEGD` files, including those located in subdirectories of the selected input folder.
 
-## 📝 Catatan Penting
-- Format akhir SEG-Y sudah disesuaikan menjadi **Big-Endian** agar dapat terbaca standar di software analisis seismik.
-- Trace dan sampel bisa di-trim/dipotong untuk memenuhi batas sampel tertentu (sesuai konfigurasi di dalam file python terkait seperti `su2segy.py`).
+## Core Files
+- `batch_convert.py`: Main script handling the GUI fallback, CLI arguments, and multiprocessing.
+- `segd2segy.py`: The core conversion engine.
+- `dist/batch_convert.exe`: The compiled Windows executable.
