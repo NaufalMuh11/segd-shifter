@@ -17,9 +17,9 @@ A standalone, high-performance utility designed to convert raw **SEG-D** seismic
 ### Option 1: Standalone Executable (Recommended)
 No Python installation or programming experience is required.
 
-1. Navigate to the **Releases** section of this repository (or download the source code as a ZIP archive).
-2. Extract the archive and locate the `dist/batch_convert.exe` binary.
-3. The executable is ready to use immediately on any Windows environment.
+1. Navigate to the [Releases](https://github.com/NaufalMuh11/segd-shifter/releases) section of this repository.
+2. Download the `segd-shifter.exe` binary directly from the **Assets** section (or download the ZIP if provided).
+3. The executable is ready to use immediately on any Windows environment—no extraction or installation needed!
 
 ### Option 2: Source Code (For Developers)
 To run the source code or build the executable manually:
