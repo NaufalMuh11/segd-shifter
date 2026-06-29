@@ -1,9 +1,0 @@
-services:
-  convert:
-    build: .
-    image: fairfield-convert:latest
-    container_name: fairfield_convert
-    volumes:
-      - ./data:/data
-      - ./output:/output
-    command: python /scripts/convert_fairfield.py /data/*.SEGD -o /output/
