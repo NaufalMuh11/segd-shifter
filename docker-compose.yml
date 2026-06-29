@@ -7,23 +7,24 @@ services:
       dockerfile: Dockerfile
     image: seisunix:latest
     container_name: seisunix_app
-
-    # Mount folder lokal ke dalam container
-    volumes:
-      - ./data:/data        # taruh file SEG-D kamu di sini
-      - ./output:/output    # hasil output akan tersimpan di sini
-
-    # Untuk X11 GUI (Linux host)
-    environment:
-      - DISPLAY=${DISPLAY}
     volumes:
       - ./data:/data
       - ./output:/output
-      - /tmp/.X11-unix:/tmp/.X11-unix   # X11 socket (Linux)
-
-    # Jalankan container secara interaktif
+      - /tmp/.X11-unix:/tmp/.X11-unix
+    environment:
+      - DISPLAY=${DISPLAY}
     stdin_open: true
     tty: true
-
-    # Tetap hidup
     command: /bin/bash
+
+  convert:
+    build:
+      context: .
+      dockerfile: Dockerfile.python
+    image: fairfield-convert:latest
+    container_name: fairfield_convert
+    volumes:
+      - ./data:/data
+      - ./output:/output
+    profiles:
+      - convert
