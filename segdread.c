@@ -254,6 +254,7 @@ main(int argc, char **argv)
  int pivot_year;		  /* for choosing correct century   */
  int errcount = 0;		    /* counter for tape io errors */
  int isSN358=0, isSN368=0, isSN408=0; /* special case Sercel glitches */
+ int isFairfield=0;			/* Fairfield Nodal Z-Land quirks */
  int hdr1_i, hdr1_r;		   /* i and r decoded from hdr1 */
  int ns_override;				/* for trace length fudging */
  int icvt2s = 0;			/* Sercel glitch flag */
@@ -317,6 +318,11 @@ main(int argc, char **argv)
  if (!getparint("errmax", &errmax))	errmax = 0;
  if (!getparint("pivot_year", &pivot_year))	pivot_year = 30;
  if (!getparint("ns", &ns_override))		 ns_override = 0;
+ if (!getparint("fairfield", &isFairfield))	isFairfield = 0;
+ /* Fairfield: selalu gunakan sfio/disk mode (setara use_stdio=1).
+  * Default buff=1 (tape block mode) akan membaca blok ~270KB dan
+  * menghitung ns yang salah. */
+ if (isFairfield) buff = 0;
 
 #ifdef SUXDR
  segy_xdr = (XDR *) malloc(sizeof(XDR));
@@ -338,7 +344,7 @@ main(int argc, char **argv)
 	 if (buff) tapefd = eopen(tape, O_RDONLY, 0444);
 	 else	{
 			tapeun = sfopen((Sfio_t *) 0, tape, "rb");
-			if (tapeun == ((Sfio_t *) 0)) err("Unable to open tape %s\n");
+			if (tapeun == ((Sfio_t *) 0)) err("Unable to open tape %s\n", tape);
 			}
  }
  if (verbose) warn("tape opened successfully");
@@ -420,7 +426,8 @@ main(int argc, char **argv)
 	if(isSN358 || isSN368) { /* repair byte swap of MP gain */
 	    imp0 = 1; imp1 = 0; icvt2s = 1;
 	}
-	if(isSN408) {
+	/* isSN408: paksa nilai struktural HANYA jika bukan Fairfield mode */
+	if(isSN408 && !isFairfield) {
 	    n_gh = 2;
 	    n_str = 1;
 	    n_cs = 2;   /* dari verbose: channel sets per scan type = 2 */
@@ -428,6 +435,16 @@ main(int argc, char **argv)
 	    n_ec = 0;   /* paksa nol, abaikan nilai salah dari header */
 	    n_ex = 0;   /* paksa nol */
 	    if(ns == 0) ns = 4096;
+	}
+	/* Fairfield Nodal Z-Land: manufacturer code 0x2B, atau paksa via fairfield=1 */
+	if(segd_general_header_1.m[0] == 0x2B) isFairfield = 1;
+	if(isFairfield) {
+	    /* n_ec dan n_ex dari GH1 SALAH untuk hardware ini (sama seperti SN408) */
+	    n_ec = 0;
+	    n_ex = 0;
+	    n_sk = 0;
+	    if(verbose) warn("Fairfield Nodal mode: mfg=0x%02X, n_ec/n_ex/n_sk dipaksa 0",
+			(unsigned char)segd_general_header_1.m[0]);
 	}
  	if(isSN358) { /* Special case for Sercel SN358 */
 	if( EXIT_FAILURE == get_gn_sn358(&segd_gen_head_sn358, tapeun) ) break;
@@ -544,6 +561,12 @@ main(int argc, char **argv)
  	}
  	if (verbose==2) warn ("there are %d channels", n_chan);
 
+	/* Fairfield: override n_chan ke INT_MAX agar baca semua trace sampai EOF */
+	if (isFairfield) {
+		if (verbose) warn("Fairfield: n_chan=%d diabaikan, baca trace sampai EOF\n", n_chan);
+		n_chan = 0x7FFFFFFF;
+	}
+
  	/*************************
  	* Read the n_chan traces *
  	*************************/
@@ -596,30 +619,47 @@ didwarn1 = 0;
 				nsamp_cs = 0; nsamp_the = 0;
 				if( EXIT_FAILURE == get_dth(&segd_dem_trace_header, tapeun) ) break;
  				if (verbose==2) info_dth(&segd_dem_trace_header);
- 				scan_type = bcd ((unsigned char *) &segd_dem_trace_header.st, 0, 2) -1;
- 				chan_set = bcd ((unsigned char *) &segd_dem_trace_header.cn, 0, 2) -1;
+ 				/* Fairfield & SN408: scan_type/chan_set adalah raw binary, bukan BCD */
+				if(isSN408 || isFairfield) {
+					scan_type = (int)(unsigned char)segd_dem_trace_header.st;
+					chan_set  = (int)(unsigned char)segd_dem_trace_header.cn;
+				} else {
+					scan_type = bcd ((unsigned char *) &segd_dem_trace_header.st, 0, 2) -1;
+					chan_set  = bcd ((unsigned char *) &segd_dem_trace_header.cn, 0, 2) -1;
+				}
 				warn("scan_type=%d", scan_type);
-				warn("chan_set=%d", scan_type);
-				if (scan_type < 0) scan_type=0;
-				if (chan_set < 0) scan_type=0;
+				warn("chan_set=%d", chan_set);
+				if (scan_type < 0 || scan_type >= n_str) scan_type=0;
+				if (chan_set < 0 || chan_set >= n_cs) chan_set=0;
 				nsamp_the = 0;
 				nsamp_cs = 0;
-				if (csd[scan_type][chan_set].te != 0 && hdr1_i != 0)
-					nsamp_cs = 2*(csd[scan_type][chan_set].te - csd[scan_type][chan_set].tf)*(16<<bcd(&csd[scan_type][chan_set].sc_j,0,1))/hdr1_i + 1 ;
-				else nsamp_cs = ((ns-1)<<bcd(&csd[scan_type][chan_set].sc_j,0,1)) + 1 ;
-				if (nsamp_cs != 0 && ns_override == 0) ns = nsamp_cs;
+				if (!isFairfield) {
+					/* Untuk Fairfield: abaikan nsamp_cs, percayai ns dari GH1 */
+					if (csd[scan_type][chan_set].te != 0 && hdr1_i != 0)
+						nsamp_cs = 2*(csd[scan_type][chan_set].te - csd[scan_type][chan_set].tf)*(16<<bcd(&csd[scan_type][chan_set].sc_j,0,1))/hdr1_i + 1 ;
+					else nsamp_cs = ((ns-1)<<bcd(&csd[scan_type][chan_set].sc_j,0,1)) + 1 ;
+					/* Proteksi: jangan pakai nsamp_cs jika negatif atau nol */
+					if (nsamp_cs > 0 && ns_override == 0) ns = nsamp_cs;
+					else if (nsamp_cs <= 0 && verbose)
+						warn("nsamp_cs=%d invalid (negatif/nol), pakai ns=%d dari GH1\n", nsamp_cs, ns);
+				}
 	  if(verbose) warn("nsamp_cs=%d\n",nsamp_cs);
 
 
 				for (i=0; i < segd_dem_trace_header.the; i++) { /* read the trace header extension blocks */
 					if ( EXIT_FAILURE == get_the(&segd_trace_header_ext, tapeun) ) break;
 				if(verbose == 2) warn ("segd_dem_trace_header.the = %d", segd_dem_trace_header.the);
-				if (i == 0) { nsamp_the = segd_trace_header_ext.nbs[2] + 256*(segd_trace_header_ext.nbs[1]+256*(segd_trace_header_ext.nbs[0]));
-	  if(verbose) warn("nsamp_the=%d\n",nsamp_the); }
-				if (nsamp_the != 0 && nsamp_cs != 0 && nsamp_cs != nsamp_the)
-				if(!didwarn1) warn("Demux channel set header nsamp %u != Demux trace header nsamp %u\n", nsamp_cs, nsamp_the);
-				didwarn1 = 1;
-				if (nsamp_the != 0) ns = nsamp_the;
+				if (i == 0 && !isFairfield) {
+					/* Fairfield: abaikan nsamp dari trace header extension (sering salah) */
+					nsamp_the = segd_trace_header_ext.nbs[2] + 256*(segd_trace_header_ext.nbs[1]+256*(segd_trace_header_ext.nbs[0]));
+	  if(verbose) warn("nsamp_the=%d\n",nsamp_the);
+				}
+				if (!isFairfield) {
+					if (nsamp_the != 0 && nsamp_cs != 0 && nsamp_cs != nsamp_the)
+						if(!didwarn1) warn("Demux channel set header nsamp %u != Demux trace header nsamp %u\n", nsamp_cs, nsamp_the);
+					didwarn1 = 1;
+					if (nsamp_the != 0) ns = nsamp_the;
+				}
 				}
 
 
@@ -719,9 +759,10 @@ didwarn1 = 0;
  						tr.data[i] *= mmp[scan_type][chan_set];
  				}
 				if (ipt >= ptmin-1) {
- 				/* Write the trace */
- 				/* if aux = 0, skip auxiliary channels */
- 				if (aux!=0 || csd[scan_type][chan_set].c == 0x10)
+				/* Write the trace */
+ 				/* if aux = 0, skip auxiliary channels.
+				 * Untuk Fairfield: tulis semua trace (aux diabaikan) */
+ 				if (aux!=0 || isFairfield || csd[scan_type][chan_set].c == 0x10)
 				{
 				/* this essentially does the important part of
 				 * what puttr does without seg faulting with
