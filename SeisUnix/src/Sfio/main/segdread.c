@@ -253,7 +253,7 @@ main(int argc, char **argv)
  int errmax;			/* max consecutive tape io errors */
  int pivot_year;		  /* for choosing correct century   */
  int errcount = 0;		    /* counter for tape io errors */
- int isSN358=0, isSN368=0; /* special case Sercel glitches */
+ int isSN358=0, isSN368=0, isSN408=0; /* special case Sercel glitches */
  int hdr1_i, hdr1_r;		   /* i and r decoded from hdr1 */
  int ns_override;				/* for trace length fudging */
  int icvt2s = 0;			/* Sercel glitch flag */
@@ -413,8 +413,24 @@ main(int argc, char **argv)
 	    isSN368 = (n_gh == 9) && (n_str == 1) && (n_sk == 76) &&
 			(n_ex == 11) && (n_cs == 44) && (n_ec == 99);
 	}
+	/* Sercel 408UL/428XL: manufacturer code 0x99 */
+	if(segd_general_header_1.m[0] == 0x99) {
+	    isSN408 = 1;
+	}
 	if(isSN358 || isSN368) { /* repair byte swap of MP gain */
 	    imp0 = 1; imp1 = 0; icvt2s = 1;
+	}
+	if(isSN408) {
+	    /* Sercel 408UL/428XL: header counts salah dibaca.
+	       Record size = 270320 bytes, sample interval 0.5ms.
+	       Struktur: 10 header blocks + 6 channel-sets * 11250 samples * 4 bytes */
+	    n_gh = 2;    /* 2 additional general header blocks */
+	    n_str = 1;   /* 1 scan type */
+	    n_cs = 6;    /* 6 channel sets */
+	    n_sk = 0;
+	    n_ec = 0;
+	    n_ex = 0;
+	    if(ns == 0) ns = 11250;  /* samples per trace */
 	}
  	if(isSN358) { /* Special case for Sercel SN358 */
 	if( EXIT_FAILURE == get_gn_sn358(&segd_gen_head_sn358, tapeun) ) break;
@@ -470,7 +486,7 @@ main(int argc, char **argv)
 
  	/* Verify the length of the first record */
 	if(!buff) nread = sftell(tapeun) - startpos;
- 	if (buff && nread != ((1 + n_gh + n_str * (n_cs + n_sk) + n_ec + n_ex) * 32))
+ 	if (buff && !isSN408 && nread != ((1 + n_gh + n_str * (n_cs + n_sk) + n_ec + n_ex) * 32))
  		err("Error with length of first record\n"
  			"\t... first record = %d bytes differs from ((1 + n_gh + n_str * (n_cs + n_sk) + n_ec + n_ex) * 32)\n"
  			"\t    with n_gh=%d, n_str=%d, n_cs=%d, n_sk=%d, n_ec=%d, n_ex=%d\n",
