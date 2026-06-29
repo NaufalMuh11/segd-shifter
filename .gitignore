@@ -1,6 +1,7 @@
 # Editor / IDE
 .claude/
 .history/
+data/
 
 # Output directories
 output/
