@@ -1,0 +1,8 @@
+# Editor / IDE
+.claude/
+.history/
+
+# Output directories
+output/
+output_final/
+output;C/
