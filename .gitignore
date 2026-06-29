@@ -6,3 +6,10 @@
 output/
 output_final/
 output;C/
+
+# Python & PyInstaller
+build/
+dist/
+*.spec
+__pycache__/
+*.pyc
