@@ -1,41 +1,58 @@
-# SEGD to SEG-Y Converter
+# SEGD to SEG-Y Batch Converter
 
-A tool to convert raw **SEG-D** seismic data into standard **SEG-Y (Big-Endian)** format for seismic processing software. The converter utilizes Python multiprocessing to process large batches of files in parallel.
+A standalone, high-performance utility designed to convert raw **SEG-D** seismic data into the standard **SEG-Y (Big-Endian)** format. Engineered for speed and reliability, this tool utilizes Python's multiprocessing capabilities to execute batch conversions across thousands of files simultaneously.
 
-## Usage
+## Key Features
 
-### Method 1: Standalone Executable (GUI)
-This method requires no installation or command-line knowledge.
+- **High-Performance Multiprocessing**: Automatically scales to utilize all available CPU cores, minimizing processing time for massive datasets.
+- **Graphical User Interface (GUI)**: Includes a compiled Windows executable (`.exe`) with a native folder-selection dialog for seamless, no-code operation.
+- **Fault-Tolerant Execution**: Corrupted or malformed files will not interrupt the batch process. Errors are securely logged to `error_log.txt` for post-process review.
+- **Recursive Directory Parsing**: Automatically discovers and processes all `.SEGD` files nested within the input directory tree.
+- **Zero Dependencies**: Pure Python implementation with no reliance on Docker, WSL, or legacy SeisUnix installations.
 
-1. Navigate to the `dist/` folder.
-2. Double-click `batch_convert.exe`.
-3. A dialog window will appear. Follow the prompts to:
-   - Select the input folder containing your `.SEGD` files.
-   - Select the output folder where the converted `.sgy` files will be saved.
-4. The conversion will start automatically.
+---
 
-### Method 2: Command Line (CLI)
-For advanced users who prefer the terminal or want to integrate the tool into other scripts. Requires Python 3.
+## Installation
 
-1. Open a terminal in the project directory.
-2. Run the following command:
-   ```bash
-   python batch_convert.py -i <input_folder> -o <output_folder>
-   ```
-   **Example:**
-   ```bash
-   python batch_convert.py -i data/ -o output_final/
-   ```
-3. (Optional) Specify the number of CPU cores to use with the `-w` flag:
-   ```bash
-   python batch_convert.py -i data/ -o output_final/ -w 4
-   ```
+### Option 1: Standalone Executable (Recommended)
+No Python installation or programming experience is required.
 
-## Features
-- **Resilient Processing**: If a file is corrupted, the program will skip it, log the issue to `error_log.txt` in the output folder, and continue processing the rest of the files.
-- **Recursive Search**: The tool automatically finds all `.SEGD` files, including those located in subdirectories of the selected input folder.
+1. Navigate to the **Releases** section of this repository (or download the source code as a ZIP archive).
+2. Extract the archive and locate the `dist/batch_convert.exe` binary.
+3. The executable is ready to use immediately on any Windows environment.
 
-## Core Files
-- `batch_convert.py`: Main script handling the GUI fallback, CLI arguments, and multiprocessing.
-- `segd2segy.py`: The core conversion engine.
-- `dist/batch_convert.exe`: The compiled Windows executable.
+### Option 2: Source Code (For Developers)
+To run the source code or build the executable manually:
+
+```bash
+git clone https://github.com/NaufalMuh11/<your-new-repo-name>.git
+cd <your-new-repo-name>
+```
+*(Requires Python 3.8+)*
+
+---
+
+## Usage Guide
+
+### Graphical Mode (Interactive)
+1. Double-click the `batch_convert.exe` binary.
+2. Follow the prompt to select the **Input Directory** containing the raw `.SEGD` files.
+3. Select an empty **Output Directory** to store the processed `.sgy` files.
+4. The conversion will execute automatically, displaying real-time progress in the terminal window.
+
+### Command-Line Interface (CLI)
+For headless operation or integration into automated pipelines, run the script via terminal:
+
+```bash
+python batch_convert.py --input <path_to_input_dir> --output <path_to_output_dir>
+```
+
+**Optional Arguments:**
+- `-w`, `--workers`: Explicitly define the number of concurrent processes (e.g., `-w 8`). Defaults to maximum available logical cores.
+
+---
+
+## Architecture Overview
+- `batch_convert.py`: The entry point orchestrating CLI/GUI routing and parallel task distribution.
+- `segd2segy.py`: The core parsing engine executing the byte-level translation to IEEE Float.
+- `dist/batch_convert.exe`: The packaged release binary compiled via PyInstaller.
