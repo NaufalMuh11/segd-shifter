@@ -1,16 +1,21 @@
-# Editor / IDE
-.claude/
-.history/
+# Data and Logs
 data/
-
-# Output directories
 output/
 output_final/
 output;C/
+*.sgy
+*.SEGD
+*.segd
+error_log.txt
 
-# Python & PyInstaller
+# Editor / IDE
+.claude/
+.history/
+.vscode/
+
+# Python & Build Artifacts
+__pycache__/
+*.pyc
 build/
 dist/
 *.spec
-__pycache__/
-*.pyc
